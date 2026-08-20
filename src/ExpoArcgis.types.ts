@@ -599,9 +599,14 @@ export type MapViewHandle = {
   setBookmark(name: string): Promise<boolean>;
   /** Gets the center of the mapview returns screen coordinates. */
   getCenter(): Promise<{
-  latitude: number;
-  longitude: number;
-} | null>;
+    latitude: number;
+    longitude: number;
+  } | null>;
+  centerOnLocationWithOffset(
+    latitude: number,
+    longitude: number,
+    verticalOffset: number,
+  ): Promise<boolean>;
 };
 
 /** Imperative handle exposed by `<SceneView>` via `ref`. */
@@ -1182,22 +1187,22 @@ export type PointCloudRenderer =
   | (PointCloudRendererBase & { type: 'rgb' })
   /** Bins a numeric attribute into discrete `classBreaks`. */
   | (PointCloudRendererBase & {
-      type: 'class-breaks';
-      classBreaks: PointCloudColorClassBreak[];
-      transformType?: PointCloudAttributeTransformType;
-    })
+    type: 'class-breaks';
+    classBreaks: PointCloudColorClassBreak[];
+    transformType?: PointCloudAttributeTransformType;
+  })
   /** Interpolates colour along `stops` (continuous ramp, e.g. elevation). */
   | (PointCloudRendererBase & {
-      type: 'stretch';
-      stops: PointCloudColorStop[];
-      transformType?: PointCloudAttributeTransformType;
-    })
+    type: 'stretch';
+    stops: PointCloudColorStop[];
+    transformType?: PointCloudAttributeTransformType;
+  })
   /** Matches discrete attribute values against `uniqueValues` (e.g. LAS class codes). */
   | (PointCloudRendererBase & {
-      type: 'unique-value';
-      uniqueValues: PointCloudColorUniqueValue[];
-      transformType?: PointCloudAttributeTransformType;
-    });
+    type: 'unique-value';
+    uniqueValues: PointCloudColorUniqueValue[];
+    transformType?: PointCloudAttributeTransformType;
+  });
 
 /** LiDAR return being filtered — mirrors `PointCloudReturnType`. */
 export type PointCloudReturnType = 'single' | 'first-of-many' | 'last-of-many' | 'last';
@@ -1210,21 +1215,21 @@ export type PointCloudReturnType = 'single' | 'first-of-many' | 'last-of-many' |
 export type PointCloudFilter =
   /** Includes or excludes points whose attribute equals one of `values`. */
   | {
-      type: 'value';
-      attributeName: string;
-      values: number[];
-      /** Defaults to `include`. */
-      mode?: 'include' | 'exclude';
-    }
+    type: 'value';
+    attributeName: string;
+    values: number[];
+    /** Defaults to `include`. */
+    mode?: 'include' | 'exclude';
+  }
   /** Keeps only the listed LiDAR returns. */
   | { type: 'return'; attributeName: string; includedReturns: PointCloudReturnType[] }
   /** Keeps points whose bitfield attribute has all `requiredSetBits` set and `requiredClearBits` clear. */
   | {
-      type: 'bitfield';
-      attributeName: string;
-      requiredSetBits?: number[];
-      requiredClearBits?: number[];
-    };
+    type: 'bitfield';
+    attributeName: string;
+    requiredSetBits?: number[];
+    requiredClearBits?: number[];
+  };
 
 /** One attribute exposed by a loaded point cloud layer — mirrors `PointCloudAttribute`. */
 export type PointCloudAttribute = {
@@ -2905,11 +2910,11 @@ export type ScreenPoint = {
   y: number;
   /** What stands between the location and the camera. `'not-on-screen'` is Android-only. */
   visibility:
-    | 'visible'
-    | 'hidden-by-base-surface'
-    | 'hidden-by-earth'
-    | 'hidden-by-elevation'
-    | 'not-on-screen';
+  | 'visible'
+  | 'hidden-by-base-surface'
+  | 'hidden-by-earth'
+  | 'hidden-by-elevation'
+  | 'not-on-screen';
 };
 
 /** Payload for the `<MapView onTap>` event. */
@@ -2990,18 +2995,18 @@ export type AtmosphereEffect = 'off' | 'horizonOnly' | 'realistic';
  */
 export type CameraController =
   | {
-      type: 'orbitLocation';
-      /** The point the camera orbits around (WGS84 longitude/latitude, optional altitude). */
-      target: Point;
-      /** Initial camera distance from the target, in meters. */
-      distance: number;
-    }
+    type: 'orbitLocation';
+    /** The point the camera orbits around (WGS84 longitude/latitude, optional altitude). */
+    target: Point;
+    /** Initial camera distance from the target, in meters. */
+    distance: number;
+  }
   | {
-      /** Orbit a moving `<Graphic>` — also pass that graphic's ref via `<SceneView orbitGraphic>`. */
-      type: 'orbitGeoElement';
-      /** Initial camera distance from the target graphic, in meters. */
-      distance: number;
-    }
+    /** Orbit a moving `<Graphic>` — also pass that graphic's ref via `<SceneView orbitGraphic>`. */
+    type: 'orbitGeoElement';
+    /** Initial camera distance from the target graphic, in meters. */
+    distance: number;
+  }
   | { type: 'globe' };
 
 /** Props for the `<SceneView>` host component. */

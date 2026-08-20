@@ -6,7 +6,6 @@ import com.arcgismaps.ArcGISEnvironment
 import com.arcgismaps.LicenseKey
 import com.arcgismaps.httpcore.authentication.OAuthApplicationCredential
 import com.arcgismaps.httpcore.authentication.OAuthUserCredential
-import com.arcgismaps.httpcore.authentication.TokenCredential
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
@@ -23,17 +22,14 @@ class ExpoArcgisModule : Module() {
         // Required by the SDK before any Map/MapView is created.
         ArcGISEnvironment.applicationContext = context
         // Pick up an API key injected at build time by the config plugin (strings.xml).
-        readApiKeyResource(context)?.let { key ->
-          ArcGISEnvironment.apiKey = ApiKey.create(key)
-        }
+        readApiKeyResource(context)?.let { key -> ArcGISEnvironment.apiKey = ApiKey.create(key) }
       }
       // Reactive auth: the SDK asks this handler for credentials when a secured resource is hit.
-      ArcGISEnvironment.authenticationManager.arcGISAuthenticationChallengeHandler = AuthChallengeHandler
+      ArcGISEnvironment.authenticationManager.arcGISAuthenticationChallengeHandler =
+              AuthChallengeHandler
     }
 
-    Function("setApiKey") { apiKey: String ->
-      ArcGISEnvironment.apiKey = ApiKey.create(apiKey)
-    }
+    Function("setApiKey") { apiKey: String -> ArcGISEnvironment.apiKey = ApiKey.create(apiKey) }
 
     // Apply a deployment license string to remove the "Licensed for Developer Use Only" watermark.
     // Returns the license status: "valid" / "invalid" / "expired" / "loginRequired".
@@ -46,7 +42,10 @@ class ExpoArcgisModule : Module() {
     // Token auth for secured services (e.g. utility-network feature services) — store the login;
     // the challenge handler mints a TokenCredential for the exact challenged resource on demand.
     // `tokenExpirationMinutes` is optional; the server's default expiry is used when omitted.
-    Function("setTokenCredential") { username: String, password: String, tokenExpirationMinutes: Int? ->
+    Function("setTokenCredential") {
+            username: String,
+            password: String,
+            tokenExpirationMinutes: Int? ->
       AuthChallengeHandler.setCredentials(username, password, tokenExpirationMinutes)
     }
 
@@ -54,70 +53,68 @@ class ExpoArcgisModule : Module() {
     // NEVER enable in production: disabling TLS validation exposes connections to MITM attacks.
     Function("setAllowUntrustedHosts") { allow: Boolean ->
       ArcGISEnvironment.authenticationManager.networkAuthenticationChallengeHandler =
-        if (allow) NetworkTrustHandler else null
+              if (allow) NetworkTrustHandler else null
     }
 
     // Revokes any OAuth user credentials on the server, then clears all cached credentials.
-    AsyncFunction("signOut") Coroutine { ->
-      val store = ArcGISEnvironment.authenticationManager.arcGISCredentialStore
-      for (credential in store.getCredentials()) {
-        if (credential is OAuthUserCredential) {
-          credential.revokeToken()
-        }
-      }
-      AuthChallengeHandler.setCredentials(null, null)
-      store.removeAll()
-    }
+    AsyncFunction("signOut") Coroutine
+            { ->
+              val store = ArcGISEnvironment.authenticationManager.arcGISCredentialStore
+              for (credential in store.getCredentials()) {
+                if (credential is OAuthUserCredential) {
+                  credential.revokeToken()
+                }
+              }
+              AuthChallengeHandler.setCredentials(null, null)
+              store.removeAll()
+            }
 
     // OAuth user sign-in (Android): JS opens the browser between these two steps.
-    AsyncFunction("oauthStart") Coroutine { portalUrl: String, clientId: String, redirectUrl: String ->
-      OAuthController.start(portalUrl, clientId, redirectUrl)
-    }
-    AsyncFunction("oauthComplete") Coroutine { redirectUrl: String ->
-      OAuthController.complete(redirectUrl)
-    }
+    AsyncFunction("oauthStart") Coroutine
+            { portalUrl: String, clientId: String, redirectUrl: String ->
+              OAuthController.start(portalUrl, clientId, redirectUrl)
+            }
+    AsyncFunction("oauthComplete") Coroutine
+            { redirectUrl: String ->
+              OAuthController.complete(redirectUrl)
+            }
 
     // App authentication (client id + secret, no user login) — caches an app token credential.
-    AsyncFunction("setAppCredential") Coroutine { portalUrl: String, clientId: String, clientSecret: String ->
-      val credential = OAuthApplicationCredential.create(portalUrl, clientId, clientSecret).getOrThrow()
-      ArcGISEnvironment.authenticationManager.arcGISCredentialStore.add(credential)
-    }
+    AsyncFunction("setAppCredential") Coroutine
+            { portalUrl: String, clientId: String, clientSecret: String ->
+              val credential =
+                      OAuthApplicationCredential.create(portalUrl, clientId, clientSecret)
+                              .getOrThrow()
+              ArcGISEnvironment.authenticationManager.arcGISCredentialStore.add(credential)
+            }
 
     // Declarative map model — a SharedObject the JS <Map> constructs and reconciles.
     Class(MapRef::class) {
       Constructor { props: Map<String, Any?>? ->
-        MapRef(appContext, props?.get("portalItem") as? Map<String, Any?>)
-          .also { ref -> props?.let { ref.applyProps(it) } }
+        MapRef(appContext, props?.get("portalItem") as? Map<String, Any?>).also { ref ->
+          props?.let { ref.applyProps(it) }
+        }
       }
 
-      Function("applyProps") { ref: MapRef, changed: Map<String, Any?> ->
-        ref.applyProps(changed)
-      }
+      Function("applyProps") { ref: MapRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
 
-      Function("addLayer") { ref: MapRef, layer: LayerRef ->
-        ref.addLayer(layer)
-      }
+      Function("addLayer") { ref: MapRef, layer: LayerRef -> ref.addLayer(layer) }
 
-      Function("removeLayer") { ref: MapRef, layer: LayerRef ->
-        ref.removeLayer(layer)
-      }
+      Function("removeLayer") { ref: MapRef, layer: LayerRef -> ref.removeLayer(layer) }
     }
 
     // Declarative 3D scene model — a SharedObject the JS <Scene> constructs and reconciles.
     Class(SceneRef::class) {
       Constructor { props: Map<String, Any?>? ->
-        SceneRef(appContext, props?.get("portalItem") as? Map<String, Any?>)
-          .also { ref -> props?.let { ref.applyProps(it) } }
+        SceneRef(appContext, props?.get("portalItem") as? Map<String, Any?>).also { ref ->
+          props?.let { ref.applyProps(it) }
+        }
       }
       Function("applyProps") { ref: SceneRef, changed: Map<String, Any?> ->
         ref.applyProps(changed)
       }
-      Function("addLayer") { ref: SceneRef, layer: LayerRef ->
-        ref.addLayer(layer)
-      }
-      Function("removeLayer") { ref: SceneRef, layer: LayerRef ->
-        ref.removeLayer(layer)
-      }
+      Function("addLayer") { ref: SceneRef, layer: LayerRef -> ref.addLayer(layer) }
+      Function("removeLayer") { ref: SceneRef, layer: LayerRef -> ref.removeLayer(layer) }
     }
 
     // Operational layers — SharedObjects the JS <FeatureLayer>/<TileLayer> construct.
@@ -206,7 +203,8 @@ class ExpoArcgisModule : Module() {
 
     Class(WmsLayerRef::class) {
       Constructor { props: Map<String, Any?> ->
-        val layerNames = (props["layerNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+        val layerNames =
+                (props["layerNames"] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         WmsLayerRef(appContext, props["url"] as String, layerNames).also { it.applyProps(props) }
       }
       Function("applyProps") { ref: WmsLayerRef, changed: Map<String, Any?> ->
@@ -216,8 +214,9 @@ class ExpoArcgisModule : Module() {
 
     Class(WmtsLayerRef::class) {
       Constructor { props: Map<String, Any?> ->
-        WmtsLayerRef(appContext, props["url"] as String, props["layerId"] as String)
-          .also { it.applyProps(props) }
+        WmtsLayerRef(appContext, props["url"] as String, props["layerId"] as String).also {
+          it.applyProps(props)
+        }
       }
       Function("applyProps") { ref: WmtsLayerRef, changed: Map<String, Any?> ->
         ref.applyProps(changed)
@@ -226,8 +225,7 @@ class ExpoArcgisModule : Module() {
 
     Class(RasterLayerRef::class) {
       Constructor { props: Map<String, Any?> ->
-        @Suppress("UNCHECKED_CAST")
-        val source = props["source"] as? Map<String, Any?> ?: emptyMap()
+        @Suppress("UNCHECKED_CAST") val source = props["source"] as? Map<String, Any?> ?: emptyMap()
         val rasterFunctionJson = props["rasterFunction"] as? String
         RasterLayerRef(appContext, source, rasterFunctionJson).also { it.applyProps(props) }
       }
@@ -235,9 +233,10 @@ class ExpoArcgisModule : Module() {
         ref.applyProps(changed)
       }
       AsyncFunction("getPyramidInfo") Coroutine { ref: RasterLayerRef -> ref.getPyramidInfo() }
-      AsyncFunction("buildPyramids") Coroutine { ref: RasterLayerRef, params: Map<String, Any?>? ->
-        ref.buildPyramids(params)
-      }
+      AsyncFunction("buildPyramids") Coroutine
+              { ref: RasterLayerRef, params: Map<String, Any?>? ->
+                ref.buildPyramids(params)
+              }
       AsyncFunction("deletePyramids") Coroutine { ref: RasterLayerRef -> ref.deletePyramids() }
       Function("closeRaster") { ref: RasterLayerRef -> ref.closeRaster() }
     }
@@ -259,16 +258,24 @@ class ExpoArcgisModule : Module() {
     Class(WfsLayerRef::class) {
       Constructor { props: Map<String, Any?> ->
         WfsLayerRef(appContext, props["url"] as? String ?: "", props["tableName"] as? String ?: "")
-          .also { it.applyProps(props) }
+                .also { it.applyProps(props) }
       }
-      Function("applyProps") { ref: WfsLayerRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
+      Function("applyProps") { ref: WfsLayerRef, changed: Map<String, Any?> ->
+        ref.applyProps(changed)
+      }
     }
     Class(OgcFeatureLayerRef::class) {
       Constructor { props: Map<String, Any?> ->
-        OgcFeatureLayerRef(appContext, props["url"] as? String ?: "", props["collectionId"] as? String ?: "")
-          .also { it.applyProps(props) }
+        OgcFeatureLayerRef(
+                        appContext,
+                        props["url"] as? String ?: "",
+                        props["collectionId"] as? String ?: ""
+                )
+                .also { it.applyProps(props) }
       }
-      Function("applyProps") { ref: OgcFeatureLayerRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
+      Function("applyProps") { ref: OgcFeatureLayerRef, changed: Map<String, Any?> ->
+        ref.applyProps(changed)
+      }
     }
 
     // Real-time DynamicEntityLayer (stream service) — emits onConnectionStatusChange +
@@ -281,13 +288,18 @@ class ExpoArcgisModule : Module() {
       Function("applyProps") { ref: DynamicEntityLayerRef, changed: Map<String, Any?> ->
         ref.applyProps(changed)
       }
-      AsyncFunction("queryDynamicEntities") Coroutine { ref: DynamicEntityLayerRef ->
-        ref.queryDynamicEntities()
-      }
-      AsyncFunction("queryObservations") Coroutine { ref: DynamicEntityLayerRef, entityId: String, max: Int ->
-        ref.queryObservations(entityId, max)
-      }
-      Function("pushObservation") { ref: DynamicEntityLayerRef, attributes: Map<String, Any?>, geometry: Map<String, Any?> ->
+      AsyncFunction("queryDynamicEntities") Coroutine
+              { ref: DynamicEntityLayerRef ->
+                ref.queryDynamicEntities()
+              }
+      AsyncFunction("queryObservations") Coroutine
+              { ref: DynamicEntityLayerRef, entityId: String, max: Int ->
+                ref.queryObservations(entityId, max)
+              }
+      Function("pushObservation") {
+              ref: DynamicEntityLayerRef,
+              attributes: Map<String, Any?>,
+              geometry: Map<String, Any?> ->
         ref.pushObservation(attributes, geometry)
       }
     }
@@ -327,12 +339,16 @@ class ExpoArcgisModule : Module() {
       Function("removeAnalysis") { ref: AnalysisOverlayRef, analysis: AnalysisRef ->
         ref.removeAnalysis(analysis)
       }
-      Function("setVisible") { ref: AnalysisOverlayRef, visible: Boolean -> ref.setVisible(visible) }
+      Function("setVisible") { ref: AnalysisOverlayRef, visible: Boolean ->
+        ref.setVisible(visible)
+      }
     }
 
     Class(ViewshedRef::class) {
       Constructor { props: Map<String, Any?> -> ViewshedRef(appContext, props) }
-      Function("applyProps") { ref: ViewshedRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
+      Function("applyProps") { ref: ViewshedRef, changed: Map<String, Any?> ->
+        ref.applyProps(changed)
+      }
     }
 
     // GeoElement-anchored viewshed — observer tracks a Graphic as it moves.
@@ -349,7 +365,9 @@ class ExpoArcgisModule : Module() {
     Class(LineOfSightRef::class) {
       Constructor { props: Map<String, Any?> -> LineOfSightRef(appContext, props) }
       Events("onTargetVisibilityChange")
-      Function("applyProps") { ref: LineOfSightRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
+      Function("applyProps") { ref: LineOfSightRef, changed: Map<String, Any?> ->
+        ref.applyProps(changed)
+      }
     }
 
     // GeoElement-anchored line of sight — observer and target each track a Graphic as it moves.
@@ -364,12 +382,15 @@ class ExpoArcgisModule : Module() {
     Class(DistanceMeasurementRef::class) {
       Constructor { props: Map<String, Any?> -> DistanceMeasurementRef(appContext, props) }
       Events("onMeasurementChange")
-      Function("applyProps") { ref: DistanceMeasurementRef, changed: Map<String, Any?> -> ref.applyProps(changed) }
+      Function("applyProps") { ref: DistanceMeasurementRef, changed: Map<String, Any?> ->
+        ref.applyProps(changed)
+      }
     }
 
     // Utility network — loaded from a feature service, attached to a <Map>; runs traces.
     // UtilityNetworkRef is registered in ExpoArcgisExtras (this module's definition() hit the
-    // Android 64 KB method-size limit). SharedObjects are global, so it still attaches to a <Map> here.
+    // Android 64 KB method-size limit). SharedObjects are global, so it still attaches to a <Map>
+    // here.
 
     // Interactive GeometryEditor — bound to a <MapView> for sketching; emits onGeometryChange
     // (committed edits) and onInteractionPreview (the pending result mid-gesture, ArcGIS 300.1).
@@ -399,145 +420,163 @@ class ExpoArcgisModule : Module() {
  * was already close enough to the JVM's 64 KB per-method ceiling that one more view function broke
  * the Kotlin compile. A function per view gives each its own budget.
  */
-private fun ModuleDefinitionBuilder.mapViewDefinition() = View(ExpoArcgisMapView::class) {
-  Events("onMapLoaded", "onMapLoadError", "onTap", "onLocationChange")
+private fun ModuleDefinitionBuilder.mapViewDefinition() =
+        View(ExpoArcgisMapView::class) {
+          Events("onMapLoaded", "onMapLoadError", "onTap", "onLocationChange")
 
-  Prop("map") { view: ExpoArcgisMapView, ref: MapRef? ->
-    view.setMap(ref)
-  }
+          Prop("map") { view: ExpoArcgisMapView, ref: MapRef? -> view.setMap(ref) }
 
-  Prop("graphicsOverlays") { view: ExpoArcgisMapView, refs: List<GraphicsOverlayRef> ->
-    view.setGraphicsOverlays(refs)
-  }
+          Prop("graphicsOverlays") { view: ExpoArcgisMapView, refs: List<GraphicsOverlayRef> ->
+            view.setGraphicsOverlays(refs)
+          }
 
-  Prop("imageOverlays") { view: ExpoArcgisMapView, refs: List<ImageOverlayRef> ->
-    view.setImageOverlays(refs)
-  }
+          Prop("imageOverlays") { view: ExpoArcgisMapView, refs: List<ImageOverlayRef> ->
+            view.setImageOverlays(refs)
+          }
 
-  Prop("viewpoint") { view: ExpoArcgisMapView, vp: Map<String, Any?>? ->
-    view.setViewpoint(vp)
-  }
+          Prop("viewpoint") { view: ExpoArcgisMapView, vp: Map<String, Any?>? ->
+            view.setViewpoint(vp)
+          }
 
-  Prop("locationDisplay") { view: ExpoArcgisMapView, config: Map<String, Any?>? ->
-    view.setLocationDisplay(config)
-  }
+          Prop("locationDisplay") { view: ExpoArcgisMapView, config: Map<String, Any?>? ->
+            view.setLocationDisplay(config)
+          }
 
-  Prop("geometryEditor") { view: ExpoArcgisMapView, ref: GeometryEditorRef? ->
-    view.setGeometryEditor(ref)
-  }
+          Prop("geometryEditor") { view: ExpoArcgisMapView, ref: GeometryEditorRef? ->
+            view.setGeometryEditor(ref)
+          }
 
-  Prop("contentInsets") { view: ExpoArcgisMapView, insets: Map<String, Any?>? ->
-    view.setContentInsets(insets)
-  }
-  Prop("insetsViewpointAdjustment") { view: ExpoArcgisMapView, value: String? ->
-    view.setInsetsViewpointAdjustment(value)
-  }
-  Prop("grid") { view: ExpoArcgisMapView, grid: Map<String, Any?>? ->
-    view.setGrid(grid)
-  }
+          Prop("contentInsets") { view: ExpoArcgisMapView, insets: Map<String, Any?>? ->
+            view.setContentInsets(insets)
+          }
+          Prop("insetsViewpointAdjustment") { view: ExpoArcgisMapView, value: String? ->
+            view.setInsetsViewpointAdjustment(value)
+          }
+          Prop("grid") { view: ExpoArcgisMapView, grid: Map<String, Any?>? -> view.setGrid(grid) }
 
-  Prop("timeExtent") { view: ExpoArcgisMapView, value: Map<String, Any?>? ->
-    view.setTimeExtent(value)
-  }
+          Prop("timeExtent") { view: ExpoArcgisMapView, value: Map<String, Any?>? ->
+            view.setTimeExtent(value)
+          }
 
-  AsyncFunction("identify") { view: ExpoArcgisMapView, screenPoint: Map<String, Any?>, options: Map<String, Any?>?, promise: Promise ->
-    view.identify(screenPoint, options, promise)
-  }
+          AsyncFunction("identify") {
+                  view: ExpoArcgisMapView,
+                  screenPoint: Map<String, Any?>,
+                  options: Map<String, Any?>?,
+                  promise: Promise ->
+            view.identify(screenPoint, options, promise)
+          }
 
-  AsyncFunction("identifyPopups") { view: ExpoArcgisMapView, screenPoint: Map<String, Any?>, options: Map<String, Any?>?, promise: Promise ->
-    view.identifyPopups(screenPoint, options, promise)
-  }
+          AsyncFunction("identifyPopups") {
+                  view: ExpoArcgisMapView,
+                  screenPoint: Map<String, Any?>,
+                  options: Map<String, Any?>?,
+                  promise: Promise ->
+            view.identifyPopups(screenPoint, options, promise)
+          }
 
-  AsyncFunction("retryLoad") { view: ExpoArcgisMapView, promise: Promise ->
-    view.retryLoad(promise)
-  }
+          AsyncFunction("retryLoad") { view: ExpoArcgisMapView, promise: Promise ->
+            view.retryLoad(promise)
+          }
 
-  AsyncFunction("getBookmarkNames") { view: ExpoArcgisMapView, promise: Promise ->
-    view.getBookmarkNames(promise)
-  }
+          AsyncFunction("getBookmarkNames") { view: ExpoArcgisMapView, promise: Promise ->
+            view.getBookmarkNames(promise)
+          }
 
-  AsyncFunction("setBookmark") { view: ExpoArcgisMapView, name: String, promise: Promise ->
-    view.setBookmark(name, promise)
-  }
+          AsyncFunction("setBookmark") { view: ExpoArcgisMapView, name: String, promise: Promise ->
+            view.setBookmark(name, promise)
+          }
 
-  AsyncFunction("getCenter") { view: ExpoArcgisMapView, promise: Promise ->
-    view.getCenter(promise)
-}
-}
+          AsyncFunction("getCenter") { view: ExpoArcgisMapView, promise: Promise ->
+            view.getCenter(promise)
+          }
 
-// 3D scene host — named so JS resolves it via requireNativeView('ExpoArcgis', 'ExpoArcgisSceneView').
-private fun ModuleDefinitionBuilder.sceneViewDefinition() = View(ExpoArcgisSceneView::class) {
-  Name("ExpoArcgisSceneView")
-  Events("onSceneLoaded", "onSceneLoadError", "onTap")
+          AsyncFunction("centerOnLocationWithOffset") {
+                  latitude: Double,
+                  longitude: Double,
+                  verticalOffset: Float,
+                  promise: Promise ->
+            view.centerOnLocationWithOffset(latitude, longitude, verticalOffset, promise)
+          }
+        }
 
-  Prop("scene") { view: ExpoArcgisSceneView, ref: SceneRef? ->
-    view.setScene(ref)
-  }
+// 3D scene host — named so JS resolves it via requireNativeView('ExpoArcgis',
+// 'ExpoArcgisSceneView').
+private fun ModuleDefinitionBuilder.sceneViewDefinition() =
+        View(ExpoArcgisSceneView::class) {
+          Name("ExpoArcgisSceneView")
+          Events("onSceneLoaded", "onSceneLoadError", "onTap")
 
-  Prop("graphicsOverlays") { view: ExpoArcgisSceneView, refs: List<GraphicsOverlayRef> ->
-    view.setGraphicsOverlays(refs)
-  }
+          Prop("scene") { view: ExpoArcgisSceneView, ref: SceneRef? -> view.setScene(ref) }
 
-  Prop("analysisOverlays") { view: ExpoArcgisSceneView, refs: List<AnalysisOverlayRef> ->
-    view.setAnalysisOverlays(refs)
-  }
+          Prop("graphicsOverlays") { view: ExpoArcgisSceneView, refs: List<GraphicsOverlayRef> ->
+            view.setGraphicsOverlays(refs)
+          }
 
-  Prop("camera") { view: ExpoArcgisSceneView, camera: Map<String, Any?>? ->
-    view.setCamera(camera)
-  }
+          Prop("analysisOverlays") { view: ExpoArcgisSceneView, refs: List<AnalysisOverlayRef> ->
+            view.setAnalysisOverlays(refs)
+          }
 
-  Prop("cameraController") { view: ExpoArcgisSceneView, value: Map<String, Any?>? ->
-    view.setCameraController(value)
-  }
+          Prop("camera") { view: ExpoArcgisSceneView, camera: Map<String, Any?>? ->
+            view.setCamera(camera)
+          }
 
-  Prop("grid") { view: ExpoArcgisSceneView, grid: Map<String, Any?>? ->
-    view.setGrid(grid)
-  }
+          Prop("cameraController") { view: ExpoArcgisSceneView, value: Map<String, Any?>? ->
+            view.setCameraController(value)
+          }
 
-  Prop("orbitGraphic") { view: ExpoArcgisSceneView, ref: GraphicRef? ->
-    view.setOrbitGraphic(ref)
-  }
+          Prop("grid") { view: ExpoArcgisSceneView, grid: Map<String, Any?>? -> view.setGrid(grid) }
 
-  Prop("sunLighting") { view: ExpoArcgisSceneView, value: String? ->
-    view.setSunLighting(value)
-  }
+          Prop("orbitGraphic") { view: ExpoArcgisSceneView, ref: GraphicRef? ->
+            view.setOrbitGraphic(ref)
+          }
 
-  Prop("atmosphereEffect") { view: ExpoArcgisSceneView, value: String? ->
-    view.setAtmosphereEffect(value)
-  }
+          Prop("sunLighting") { view: ExpoArcgisSceneView, value: String? ->
+            view.setSunLighting(value)
+          }
 
-  Prop("sunTime") { view: ExpoArcgisSceneView, value: Double? ->
-    view.setSunTime(value)
-  }
+          Prop("atmosphereEffect") { view: ExpoArcgisSceneView, value: String? ->
+            view.setAtmosphereEffect(value)
+          }
 
-  Prop("timeExtent") { view: ExpoArcgisSceneView, value: Map<String, Any?>? ->
-    view.setTimeExtent(value)
-  }
+          Prop("sunTime") { view: ExpoArcgisSceneView, value: Double? -> view.setSunTime(value) }
 
-  AsyncFunction("retryLoad") { view: ExpoArcgisSceneView, promise: Promise ->
-    view.retryLoad(promise)
-  }
+          Prop("timeExtent") { view: ExpoArcgisSceneView, value: Map<String, Any?>? ->
+            view.setTimeExtent(value)
+          }
 
-  AsyncFunction("getCamera") { view: ExpoArcgisSceneView ->
-    view.getCamera()
-  }
+          AsyncFunction("retryLoad") { view: ExpoArcgisSceneView, promise: Promise ->
+            view.retryLoad(promise)
+          }
 
-  AsyncFunction("screenPoint") { view: ExpoArcgisSceneView, location: Map<String, Any?> ->
-    view.screenPoint(location)
-  }
+          AsyncFunction("getCamera") { view: ExpoArcgisSceneView -> view.getCamera() }
 
-  AsyncFunction("getElevation") { view: ExpoArcgisSceneView, point: Map<String, Any?>, promise: Promise ->
-    view.getElevation(point, promise)
-  }
+          AsyncFunction("screenPoint") { view: ExpoArcgisSceneView, location: Map<String, Any?> ->
+            view.screenPoint(location)
+          }
 
-  AsyncFunction("identify") { view: ExpoArcgisSceneView, screenPoint: Map<String, Any?>, options: Map<String, Any?>?, promise: Promise ->
-    view.identify(screenPoint, options, promise)
-  }
+          AsyncFunction("getElevation") {
+                  view: ExpoArcgisSceneView,
+                  point: Map<String, Any?>,
+                  promise: Promise ->
+            view.getElevation(point, promise)
+          }
 
-  AsyncFunction("identifyPopups") { view: ExpoArcgisSceneView, screenPoint: Map<String, Any?>, options: Map<String, Any?>?, promise: Promise ->
-    view.identifyPopups(screenPoint, options, promise)
-  }
-}
+          AsyncFunction("identify") {
+                  view: ExpoArcgisSceneView,
+                  screenPoint: Map<String, Any?>,
+                  options: Map<String, Any?>?,
+                  promise: Promise ->
+            view.identify(screenPoint, options, promise)
+          }
+
+          AsyncFunction("identifyPopups") {
+                  view: ExpoArcgisSceneView,
+                  screenPoint: Map<String, Any?>,
+                  options: Map<String, Any?>?,
+                  promise: Promise ->
+            view.identifyPopups(screenPoint, options, promise)
+          }
+        }
 
 /** Reads the optional `arcgis_api_key` string resource added by the config plugin. */
 private fun readApiKeyResource(context: Context): String? {
