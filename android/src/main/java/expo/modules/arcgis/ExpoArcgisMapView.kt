@@ -295,22 +295,28 @@ class ExpoArcgisMapView(context: Context, appContext: AppContext) : ExpoView(con
           verticalOffset: Double,
           promise: Promise,
   ) {
-    val point = Point(longitude, latitude, SpatialReference.wgs84())
+    scope.launch {
+      val point = Point(longitude, latitude, SpatialReference.wgs84())
 
-    val screenPoint = mapView.locationToScreen(point)
+      val screenPoint = mapView.locationToScreen(point)
 
-    val adjustedScreenPoint = ScreenCoordinate(screenPoint.x, screenPoint.y - verticalOffset)
+      val adjustedScreenPoint =
+              ScreenCoordinate(
+                      screenPoint.x,
+                      screenPoint.y - verticalOffset,
+              )
 
-    val adjustedMapPoint = mapView.screenToLocation(adjustedScreenPoint)
+      val adjustedMapPoint = mapView.screenToLocation(adjustedScreenPoint)
 
-    if (adjustedMapPoint == null) {
-      promise.resolve(false)
-      return
+      if (adjustedMapPoint == null) {
+        promise.resolve(false)
+        return@launch
+      }
+
+      mapView.setViewpointCenter(adjustedMapPoint)
+
+      promise.resolve(true)
     }
-
-    mapView.setViewpointCenter(adjustedMapPoint)
-
-    promise.resolve(true)
   }
 
   /** Identifies popups under a screen point — evaluates each and returns `{ title, fields }`. */
