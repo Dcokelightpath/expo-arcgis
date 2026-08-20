@@ -491,9 +491,10 @@ private fun ModuleDefinitionBuilder.mapViewDefinition() =
           }
 
           AsyncFunction("centerOnLocationWithOffset") {
+                  view: ExpoArcgisMapView,
                   latitude: Double,
                   longitude: Double,
-                  verticalOffset: Float,
+                  verticalOffset: Double,
                   promise: Promise ->
             view.centerOnLocationWithOffset(latitude, longitude, verticalOffset, promise)
           }
