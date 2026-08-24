@@ -93,10 +93,6 @@ class ExpoArcgisMapView(context: Context, appContext: AppContext) : ExpoView(con
       mapView.onSingleTapConfirmed.collect { event ->
         // A 2D tap resolves to the map in practice, but report nothing rather than a fabricated
         // (0, 0) on the off chance it does not. Matches iOS and the SceneView above.
-        android.util.Log.d(
-    "ArcGIS",
-    "tap = ${event.screenCoordinate.x}, ${event.screenCoordinate.y}"
-)
         val mapPoint = event.mapPoint ?: return@collect
         val wgs84 =
                 GeometryEngine.projectOrNull(mapPoint, SpatialReference.wgs84()) as? Point
@@ -267,17 +263,6 @@ class ExpoArcgisMapView(context: Context, appContext: AppContext) : ExpoView(con
     val y = (screenPoint["y"] as? Number)?.toDouble() ?: 0.0
     val tolerance = (options?.get("tolerance") as? Number)?.toDouble() ?: 12.0
     val maxResults = (options?.get("maxResults") as? Number)?.toInt() ?: 1
-android.util.Log.d("ArcGIS", "tap = $x, $y")
-
-android.util.Log.d(
-    "ArcGIS",
-    "MapView size = ${mapView.width} x ${mapView.height}"
-)
-
-android.util.Log.d(
-    "ArcGIS",
-    "MapView location = ${mapView.left}, ${mapView.top}"
-)
     scope.launch {
       mapView.identifyLayers(ScreenCoordinate(x, y), tolerance, false, maxResults)
               .onSuccess { results -> promise.resolve(results.map { serializeIdentifyResult(it) }) }
