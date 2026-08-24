@@ -313,7 +313,7 @@ class ExpoArcgisMapView(context: Context, appContext: AppContext) : ExpoView(con
         return@launch
       }
 
-      mapView.setViewpointCenter(point)
+      mapView.setViewpointCenter(adjustedMapPoint)
 
       promise.resolve(true)
     }
