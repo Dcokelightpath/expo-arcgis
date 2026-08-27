@@ -136,16 +136,34 @@ internal fun applyAttributes(feature: Feature, attributes: Map<*, *>) {
 
     val table = feature.featureTable
 
+    // Print the schema once
     table?.fields?.forEach { field ->
         println("FIELD ${field.name} -> ${field.fieldType}")
     }
 
     attributes.forEach { (key, value) ->
-        println("SETTING $key = $value (${value?.javaClass?.name})")
+
+        val fieldName = key.toString()
+
+        println("------------------------------------------------")
+        println("SETTING $fieldName")
+        println("Incoming value : $value")
+        println("Incoming class : ${value?.javaClass?.name}")
+
         if (value != null) {
-            feature.attributes[key.toString()] = value
+
+            // Write to ArcGIS
+            feature.attributes[fieldName] = value
+
+            // Read it back immediately
+            val stored = feature.attributes[fieldName]
+
+            println("Stored value   : $stored")
+            println("Stored class   : ${stored?.javaClass?.name}")
         }
     }
+
+    println("------------------------------------------------")
 }
 // region Identify
 
