@@ -6,7 +6,6 @@ import com.arcgismaps.data.ArcGISFeatureTable
 import com.arcgismaps.data.ContingentCodedValue
 import com.arcgismaps.data.ContingentRangeValue
 import com.arcgismaps.data.ContingentValue
-import com.arcgismaps.data.Feature
 import com.arcgismaps.data.FeatureCollection
 import com.arcgismaps.data.FeatureCollectionTable
 import com.arcgismaps.data.FeatureRequestMode
@@ -14,62 +13,62 @@ import com.arcgismaps.data.FeatureTable
 import com.arcgismaps.data.Field
 import com.arcgismaps.data.FieldType
 import com.arcgismaps.data.GeoPackage
+import com.arcgismaps.data.OgcFeatureCollectionTable
 import com.arcgismaps.data.QueryFeatureFields
 import com.arcgismaps.data.QueryParameters
 import com.arcgismaps.data.ServiceFeatureTable
 import com.arcgismaps.data.ShapefileFeatureTable
-import com.arcgismaps.data.OgcFeatureCollectionTable
 import com.arcgismaps.data.WfsFeatureTable
 import com.arcgismaps.mapping.PortalItem
+import com.arcgismaps.mapping.kml.KmlContainer
+import com.arcgismaps.mapping.kml.KmlDataset
+import com.arcgismaps.mapping.kml.KmlNode
+import com.arcgismaps.mapping.kml.KmlTour
+import com.arcgismaps.mapping.kml.KmlTourController
 import com.arcgismaps.mapping.layers.AnnotationLayer
-import com.arcgismaps.mapping.layers.DisplayFilter
-import com.arcgismaps.mapping.layers.ManualDisplayFilterDefinition
-import com.arcgismaps.mapping.layers.ScaleDisplayFilterDefinition
-import com.arcgismaps.mapping.layers.ScaleRangeDisplayFilter
-import com.arcgismaps.mapping.symbology.DictionaryRenderer
-import com.arcgismaps.mapping.symbology.DictionarySymbolStyle
-import com.arcgismaps.mapping.view.LayerSceneProperties
-import com.arcgismaps.mapping.view.SurfacePlacement
-import com.arcgismaps.portal.Portal
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import com.arcgismaps.mapping.layers.ArcGISMapImageLayer
 import com.arcgismaps.mapping.layers.ArcGISSceneLayer
 import com.arcgismaps.mapping.layers.ArcGISTiledLayer
 import com.arcgismaps.mapping.layers.ArcGISVectorTiledLayer
 import com.arcgismaps.mapping.layers.BuildingSceneLayer
 import com.arcgismaps.mapping.layers.DimensionLayer
+import com.arcgismaps.mapping.layers.DisplayFilter
 import com.arcgismaps.mapping.layers.FeatureCollectionLayer
 import com.arcgismaps.mapping.layers.FeatureLayer
-import com.arcgismaps.mapping.layers.SelectionMode
 import com.arcgismaps.mapping.layers.GroupLayer
 import com.arcgismaps.mapping.layers.IntegratedMeshLayer
+import com.arcgismaps.mapping.layers.KmlLayer
 import com.arcgismaps.mapping.layers.Layer
-import com.arcgismaps.mapping.layers.OrientedImageryLayer
-import com.arcgismaps.mapping.layers.SubtypeFeatureLayer
+import com.arcgismaps.mapping.layers.ManualDisplayFilterDefinition
 import com.arcgismaps.mapping.layers.Ogc3DTilesLayer
 import com.arcgismaps.mapping.layers.OpenStreetMapLayer
+import com.arcgismaps.mapping.layers.OrientedImageryLayer
 import com.arcgismaps.mapping.layers.PointCloudLayer
-import com.arcgismaps.mapping.pointcloud.PointCloudAttributeValueType
 import com.arcgismaps.mapping.layers.RasterLayer
+import com.arcgismaps.mapping.layers.ScaleDisplayFilterDefinition
+import com.arcgismaps.mapping.layers.ScaleRangeDisplayFilter
+import com.arcgismaps.mapping.layers.SelectionMode
+import com.arcgismaps.mapping.layers.SubtypeFeatureLayer
 import com.arcgismaps.mapping.layers.WebTiledLayer
-import com.arcgismaps.mapping.layers.KmlLayer
 import com.arcgismaps.mapping.layers.WmsLayer
 import com.arcgismaps.mapping.layers.WmtsLayer
-import com.arcgismaps.mapping.kml.KmlContainer
-import com.arcgismaps.mapping.kml.KmlDataset
-import com.arcgismaps.mapping.kml.KmlNode
-import com.arcgismaps.mapping.kml.KmlTour
-import com.arcgismaps.mapping.kml.KmlTourController
+import com.arcgismaps.mapping.pointcloud.PointCloudAttributeValueType
+import com.arcgismaps.mapping.symbology.DictionaryRenderer
+import com.arcgismaps.mapping.symbology.DictionarySymbolStyle
 import com.arcgismaps.mapping.view.Graphic
+import com.arcgismaps.mapping.view.LayerSceneProperties
+import com.arcgismaps.mapping.view.SurfacePlacement
+import com.arcgismaps.portal.Portal
 import com.arcgismaps.raster.ImageServiceRaster
 import com.arcgismaps.raster.Raster
 import com.arcgismaps.raster.RasterFunction
 import com.arcgismaps.raster.RasterPyramids
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.sharedobjects.SharedObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Base SharedObject for an operational layer; the map reads [layer] by reference. */
 abstract class LayerRef(appContext: AppContext) : SharedObject(appContext) {
@@ -90,38 +89,50 @@ abstract class LayerRef(appContext: AppContext) : SharedObject(appContext) {
 }
 
 /** Operational FeatureLayer from a feature service URL, a portal item, or a local shapefile. */
-class FeatureLayerRef private constructor(
-  appContext: AppContext,
-  override val layer: FeatureLayer,
-  /**
-   * The table this layer was built around, when one was supplied up front. A layer built from a
-   * portal item has none until it loads, so this is null in that case — call [resolvedTable]
-   * rather than reading this.
-   */
-  private val providedTable: FeatureTable?,
+class FeatureLayerRef
+private constructor(
+        appContext: AppContext,
+        override val layer: FeatureLayer,
+        /**
+         * The table this layer was built around, when one was supplied up front. A layer built from
+         * a portal item has none until it loads, so this is null in that case — call
+         * [resolvedTable] rather than reading this.
+         */
+        private val providedTable: FeatureTable?,
 ) : LayerRef(appContext) {
   private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
   /** Wraps an existing feature table (e.g. from a ServiceGeodatabase version or a Geodatabase). */
-  constructor(appContext: AppContext, table: FeatureTable) :
-    this(appContext, FeatureLayer.createWithFeatureTable(table), table)
+  constructor(
+          appContext: AppContext,
+          table: FeatureTable
+  ) : this(appContext, FeatureLayer.createWithFeatureTable(table), table)
 
   /** Builds the layer from declarative props (a feature-service URL, portal item, or shapefile). */
-  constructor(appContext: AppContext, props: Map<String, Any?>) : this(appContext, featureLayerParts(props))
+  constructor(
+          appContext: AppContext,
+          props: Map<String, Any?>
+  ) : this(appContext, featureLayerParts(props))
 
-  private constructor(appContext: AppContext, parts: Pair<FeatureLayer, FeatureTable?>) :
-    this(appContext, parts.first, parts.second)
+  private constructor(
+          appContext: AppContext,
+          parts: Pair<FeatureLayer, FeatureTable?>
+  ) : this(appContext, parts.first, parts.second)
 
   /**
-   * The layer's feature table. A portal-item layer only gains one once it has loaded, so this
-   * loads it on first use; every caller is already a suspend function. Throws rather than
-   * returning null so a caller cannot silently no-op on a layer that failed to load.
+   * The layer's feature table. A portal-item layer only gains one once it has loaded, so this loads
+   * it on first use; every caller is already a suspend function. Throws rather than returning null
+   * so a caller cannot silently no-op on a layer that failed to load.
    */
   private suspend fun resolvedTable(): FeatureTable {
-    providedTable?.let { return it }
+    providedTable?.let {
+      return it
+    }
     layer.load().getOrThrow()
     return layer.featureTable
-      ?: throw IllegalStateException("Portal item has no feature table — check the item type and layerId")
+            ?: throw IllegalStateException(
+                    "Portal item has no feature table — check the item type and layerId"
+            )
   }
 
   /** Lazily-built branch-versioning handle for this layer's service geodatabase (cached). */
@@ -132,22 +143,25 @@ class FeatureLayerRef private constructor(
     val table = resolvedTable()
     val params = buildQueryParameters(query)
     val outFields = outFieldsFromQuery(query)
-    val result = if (table is ServiceFeatureTable) {
-      table.queryFeatures(params, QueryFeatureFields.LoadAll).getOrThrow()
-    } else {
-      table.queryFeatures(params).getOrThrow()
-    }
+    val result =
+            if (table is ServiceFeatureTable) {
+              table.queryFeatures(params, QueryFeatureFields.LoadAll).getOrThrow()
+            } else {
+              table.queryFeatures(params).getOrThrow()
+            }
     return result.map { serializeFeature(it, outFields) }
   }
 
   suspend fun queryFeatureCount(query: Map<String, Any?>?): Long =
-    resolvedTable().queryFeatureCount(buildQueryParameters(query)).getOrThrow()
+          resolvedTable().queryFeatureCount(buildQueryParameters(query)).getOrThrow()
 
   suspend fun queryExtent(query: Map<String, Any?>?): Map<String, Any?> =
-    dictFromGeometry(resolvedTable().queryExtent(buildQueryParameters(query)).getOrThrow())
+          dictFromGeometry(resolvedTable().queryExtent(buildQueryParameters(query)).getOrThrow())
 
   suspend fun queryStatistics(query: Map<String, Any?>): List<Map<String, Any?>> =
-    resolvedTable().queryStatistics(buildStatisticsQueryParameters(query)).getOrThrow().map { serializeStatisticRecord(it) }
+          resolvedTable().queryStatistics(buildStatisticsQueryParameters(query)).getOrThrow().map {
+            serializeStatisticRecord(it)
+          }
 
   /** Returns the table's editing templates (name + prototype attributes), for building edit UIs. */
   suspend fun queryFeatureTemplates(): List<Map<String, Any?>> {
@@ -161,16 +175,27 @@ class FeatureLayerRef private constructor(
 
   /**
    * Adds a feature created from the named template (inheriting its prototype attributes), then
-   * optionally applies [attributes] on top and sets [geometry]. When [apply] is not `false`,
-   * pushes the edit and returns the new object id; pass `apply = false` for a local-only edit.
+   * optionally applies [attributes] on top and sets [geometry]. When [apply] is not `false`, pushes
+   * the edit and returns the new object id; pass `apply = false` for a local-only edit.
    */
-  suspend fun addFeatureWithTemplate(templateName: String, attributes: Map<String, Any?>?, geometry: Map<String, Any?>?, apply: Boolean?): Long? {
+  suspend fun addFeatureWithTemplate(
+          templateName: String,
+          attributes: Map<String, Any?>?,
+          geometry: Map<String, Any?>?,
+          apply: Boolean?
+  ): Long? {
     val table = resolvedTable()
     table.load().getOrThrow()
-    val arcGISTable = table as? ArcGISFeatureTable
-      ?: throw IllegalStateException("addFeatureWithTemplate requires an ArcGIS feature table (not a shapefile or WFS table)")
-    val template = arcGISTable.getFeatureTemplate(templateName)
-      ?: throw IllegalArgumentException("No feature template named '$templateName' found in the table")
+    val arcGISTable =
+            table as? ArcGISFeatureTable
+                    ?: throw IllegalStateException(
+                            "addFeatureWithTemplate requires an ArcGIS feature table (not a shapefile or WFS table)"
+                    )
+    val template =
+            arcGISTable.getFeatureTemplate(templateName)
+                    ?: throw IllegalArgumentException(
+                            "No feature template named '$templateName' found in the table"
+                    )
     val geom = geometry?.let { geometryFromDict(it) }
     val feature = arcGISTable.createFeature(template, geom)
     if (attributes != null) applyAttributes(feature, attributes)
@@ -180,18 +205,29 @@ class FeatureLayerRef private constructor(
   }
 
   /**
-   * Adds a feature created from the named subtype (sets the subtype field and inherits its
-   * default attribute values), then optionally applies [attributes] on top and sets [geometry].
-   * When [apply] is not `false`, pushes the edit and returns the new object id; pass
-   * `apply = false` for a local-only edit.
+   * Adds a feature created from the named subtype (sets the subtype field and inherits its default
+   * attribute values), then optionally applies [attributes] on top and sets [geometry]. When
+   * [apply] is not `false`, pushes the edit and returns the new object id; pass `apply = false` for
+   * a local-only edit.
    */
-  suspend fun addFeatureWithSubtype(subtypeName: String, attributes: Map<String, Any?>?, geometry: Map<String, Any?>?, apply: Boolean?): Long? {
+  suspend fun addFeatureWithSubtype(
+          subtypeName: String,
+          attributes: Map<String, Any?>?,
+          geometry: Map<String, Any?>?,
+          apply: Boolean?
+  ): Long? {
     val table = resolvedTable()
     table.load().getOrThrow()
-    val arcGISTable = table as? ArcGISFeatureTable
-      ?: throw IllegalStateException("addFeatureWithSubtype requires an ArcGIS feature table (not a shapefile or WFS table)")
-    val subtype = arcGISTable.featureSubtypes.firstOrNull { it.name == subtypeName }
-      ?: throw IllegalArgumentException("No feature subtype named '$subtypeName' found in the table")
+    val arcGISTable =
+            table as? ArcGISFeatureTable
+                    ?: throw IllegalStateException(
+                            "addFeatureWithSubtype requires an ArcGIS feature table (not a shapefile or WFS table)"
+                    )
+    val subtype =
+            arcGISTable.featureSubtypes.firstOrNull { it.name == subtypeName }
+                    ?: throw IllegalArgumentException(
+                            "No feature subtype named '$subtypeName' found in the table"
+                    )
     val geom = geometry?.let { geometryFromDict(it) }
     val feature = arcGISTable.createFeature(subtype, geom)
     if (attributes != null) applyAttributes(feature, attributes)
@@ -204,7 +240,11 @@ class FeatureLayerRef private constructor(
    * Adds a feature. When `apply` is not `false`, pushes the edit and returns the new object id;
    * pass `apply = false` to make a local-only edit (batch with `applyEdits`).
    */
-  suspend fun addFeature(attributes: Map<String, Any?>, geometry: Map<String, Any?>?, apply: Boolean?): Long? {
+  suspend fun addFeature(
+          attributes: Map<String, Any?>,
+          geometry: Map<String, Any?>?,
+          apply: Boolean?
+  ): Long? {
     val table = resolvedTable()
     val feature = table.createFeature()
     applyAttributes(feature, attributes)
@@ -219,7 +259,9 @@ class FeatureLayerRef private constructor(
     val table = resolvedTable()
     val feature = featureByObjectId(objectId) ?: return
     (changes["attributes"] as? Map<*, *>)?.let { applyAttributes(feature, it) }
-    (changes["geometry"] as? Map<*, *>)?.let { geometryFromDict(it)?.let { g -> feature.geometry = g } }
+    (changes["geometry"] as? Map<*, *>)?.let {
+      geometryFromDict(it)?.let { g -> feature.geometry = g }
+    }
     table.updateFeature(feature).getOrThrow()
     if (apply != false) persistEdits()
   }
@@ -255,13 +297,19 @@ class FeatureLayerRef private constructor(
   suspend fun getServiceGeodatabase(): ServiceGeodatabaseRef {
     // Check the cache before resolving: on a portal-item layer `resolvedTable()` loads the layer,
     // which is wasted work once the handle is already built.
-    cachedServiceGeodatabase?.let { return it }
-    val serviceTable = resolvedTable() as? ServiceFeatureTable
-      ?: throw IllegalStateException("Layer is not backed by a service feature table")
+    cachedServiceGeodatabase?.let {
+      return it
+    }
+    val serviceTable =
+            resolvedTable() as? ServiceFeatureTable
+                    ?: throw IllegalStateException("Layer is not backed by a service feature table")
     serviceTable.load().getOrThrow()
-    val geodatabase = serviceTable.serviceGeodatabase
-      ?: throw IllegalStateException("Service geodatabase unavailable for this layer")
-    cachedServiceGeodatabase?.let { return it }  // guard the load race
+    val geodatabase =
+            serviceTable.serviceGeodatabase
+                    ?: throw IllegalStateException("Service geodatabase unavailable for this layer")
+    cachedServiceGeodatabase?.let {
+      return it
+    } // guard the load race
     val ctx = appContext ?: throw IllegalStateException("No app context")
     return ServiceGeodatabaseRef(ctx, geodatabase).also { cachedServiceGeodatabase = it }
   }
@@ -277,28 +325,34 @@ class FeatureLayerRef private constructor(
     return style.uiSchemaJson
   }
 
-  /** Queries features related to `objectId` (across all relationships); returns groups by relationship. */
+  /**
+   * Queries features related to `objectId` (across all relationships); returns groups by
+   * relationship.
+   */
   suspend fun queryRelatedFeatures(objectId: Long): List<Map<String, Any?>> {
     val table = resolvedTable()
     val arcgisTable = table as? ArcGISFeatureTable ?: return emptyList()
     val feature = featureByObjectId(objectId) as? ArcGISFeature ?: return emptyList()
     return arcgisTable.queryRelatedFeatures(feature).getOrThrow().map { result ->
       mapOf(
-        "relationshipId" to (result.relationshipInfo?.id ?: -1L),
-        "features" to result.map { serializeFeature(it) },
+              "relationshipId" to (result.relationshipInfo?.id ?: -1L),
+              "features" to result.map { serializeFeature(it) },
       )
     }
   }
 
-  /** Queries the attachments for the feature with `objectId`; returns `[{id, name, contentType, size}]`. */
+  /**
+   * Queries the attachments for the feature with `objectId`; returns `[{id, name, contentType,
+   * size}]`.
+   */
   suspend fun queryAttachments(objectId: Long): List<Map<String, Any?>> {
     val feature = featureByObjectId(objectId) as? ArcGISFeature ?: return emptyList()
     return feature.fetchAttachments().getOrThrow().map { attachment ->
       mapOf(
-        "id" to attachment.id,
-        "name" to attachment.name,
-        "contentType" to attachment.contentType,
-        "size" to attachment.size,
+              "id" to attachment.id,
+              "name" to attachment.name,
+              "contentType" to attachment.contentType,
+              "size" to attachment.size,
       )
     }
   }
@@ -313,65 +367,73 @@ class FeatureLayerRef private constructor(
 
   /** Fetches the binary data for the attachment with `attachmentId` and returns it as base64. */
   suspend fun fetchAttachment(objectId: Long, attachmentId: Long): String {
-    val feature = featureByObjectId(objectId) as? ArcGISFeature
-      ?: error("Feature not found: $objectId")
-    val attachment = feature.fetchAttachments().getOrThrow()
-      .firstOrNull { it.id == attachmentId }
-      ?: error("Attachment not found: $attachmentId")
+    val feature =
+            featureByObjectId(objectId) as? ArcGISFeature ?: error("Feature not found: $objectId")
+    val attachment =
+            feature.fetchAttachments().getOrThrow().firstOrNull { it.id == attachmentId }
+                    ?: error("Attachment not found: $attachmentId")
     val bytes = attachment.fetchData().getOrThrow()
     return Base64.encodeToString(bytes, Base64.NO_WRAP)
   }
 
   /** Deletes the attachment with `attachmentId` from the feature with `objectId`, then persists. */
   suspend fun deleteAttachment(objectId: Long, attachmentId: Long) {
-    val feature = featureByObjectId(objectId) as? ArcGISFeature
-      ?: error("Feature not found: $objectId")
-    val attachment = feature.fetchAttachments().getOrThrow()
-      .firstOrNull { it.id == attachmentId }
-      ?: error("Attachment not found: $attachmentId")
+    val feature =
+            featureByObjectId(objectId) as? ArcGISFeature ?: error("Feature not found: $objectId")
+    val attachment =
+            feature.fetchAttachments().getOrThrow().firstOrNull { it.id == attachmentId }
+                    ?: error("Attachment not found: $attachmentId")
     feature.deleteAttachment(attachment).getOrThrow()
     persistEdits()
   }
 
   /** Decodes `dataBase64` and updates the attachment with `attachmentId`, then persists. */
   suspend fun updateAttachment(
-    objectId: Long, attachmentId: Long,
-    name: String, contentType: String, dataBase64: String,
+          objectId: Long,
+          attachmentId: Long,
+          name: String,
+          contentType: String,
+          dataBase64: String,
   ) {
-    val feature = featureByObjectId(objectId) as? ArcGISFeature
-      ?: error("Feature not found: $objectId")
-    val attachment = feature.fetchAttachments().getOrThrow()
-      .firstOrNull { it.id == attachmentId }
-      ?: error("Attachment not found: $attachmentId")
+    val feature =
+            featureByObjectId(objectId) as? ArcGISFeature ?: error("Feature not found: $objectId")
+    val attachment =
+            feature.fetchAttachments().getOrThrow().firstOrNull { it.id == attachmentId }
+                    ?: error("Attachment not found: $attachmentId")
     val bytes = Base64.decode(dataBase64, Base64.NO_WRAP)
     feature.updateAttachment(attachment, name, contentType, bytes).getOrThrow()
     persistEdits()
   }
 
   /**
-   * Returns the valid coded values for [fieldName] given a feature's current [attributes].
-   * Use this to drive editing-form dropdowns: pass the feature's current attribute state and the
-   * name of the field being edited; returns `[{ name, code }]` for coded values that satisfy all
+   * Returns the valid coded values for [fieldName] given a feature's current [attributes]. Use this
+   * to drive editing-form dropdowns: pass the feature's current attribute state and the name of the
+   * field being edited; returns `[{ name, code }]` for coded values that satisfy all
    * contingent-value constraints defined on the table.
    *
    * Loads the table and its [ContingentValuesDefinition], builds a temporary [ArcGISFeature] from
    * [attributes] (via `FeatureTable.createFeature(attributes, null)` + `applyAttributes`), then
-   * calls `getContingentValuesOrNull(feature, fieldName)`.
-   * Non-coded contingent values ([ContingentRangeValue], null, any) are omitted — only
-   * [ContingentCodedValue] entries are returned.
+   * calls `getContingentValuesOrNull(feature, fieldName)`. Non-coded contingent values (
+   * [ContingentRangeValue], null, any) are omitted — only [ContingentCodedValue] entries are
+   * returned.
    *
-   * Requires an [ArcGISFeatureTable]; throws for shapefiles and WFS tables.
-   * Returns an empty list when no constraints are defined for [fieldName].
+   * Requires an [ArcGISFeatureTable]; throws for shapefiles and WFS tables. Returns an empty list
+   * when no constraints are defined for [fieldName].
    */
-  suspend fun contingentValues(attributes: Map<String, Any?>, fieldName: String): List<Map<String, Any?>> {
+  suspend fun contingentValues(
+          attributes: Map<String, Any?>,
+          fieldName: String
+  ): List<Map<String, Any?>> {
     val table = resolvedTable()
     table.load().getOrThrow()
-    val arcGISTable = table as? ArcGISFeatureTable
-      ?: throw IllegalStateException("contingentValues requires an ArcGIS feature table (not a shapefile or WFS table)")
+    val arcGISTable =
+            table as? ArcGISFeatureTable
+                    ?: throw IllegalStateException(
+                            "contingentValues requires an ArcGIS feature table (not a shapefile or WFS table)"
+                    )
     arcGISTable.contingentValuesDefinition.load().getOrThrow()
     val feature = table.createFeature(attributes, null) as ArcGISFeature
-    val result = arcGISTable.getContingentValuesOrNull(feature, fieldName)
-      ?: return emptyList()
+    val result = arcGISTable.getContingentValuesOrNull(feature, fieldName) ?: return emptyList()
     return result.byFieldGroup.flatMap { (_, values) ->
       values.mapNotNull { cv ->
         if (cv !is ContingentCodedValue) return@mapNotNull null
@@ -382,26 +444,34 @@ class FeatureLayerRef private constructor(
   }
 
   /**
-   * Returns the valid contingent values for [fieldName] on the feature with [objectId].
-   * Requires the table to be an [ArcGISFeatureTable]; throws otherwise. Returns an empty list when
-   * the feature is not found or the table has no contingent-values result for that field.
-   * Result shape: `{ fieldName, contingentValues: [{ type, ... }] }` where each entry is either
-   * `{ type: "coded", fieldGroupName, codedValue: { name, code } }` or
-   * `{ type: "range", fieldGroupName, min, max }`.
+   * Returns the valid contingent values for [fieldName] on the feature with [objectId]. Requires
+   * the table to be an [ArcGISFeatureTable]; throws otherwise. Returns an empty list when the
+   * feature is not found or the table has no contingent-values result for that field. Result shape:
+   * `{ fieldName, contingentValues: [{ type, ... }] }` where each entry is either `{ type: "coded",
+   * fieldGroupName, codedValue: { name, code } }` or `{ type: "range", fieldGroupName, min, max }`.
    * Exotic subtypes are serialized as `{ type: "any" }` / `{ type: "null" }`.
    */
   suspend fun getContingentValues(objectId: Long, fieldName: String): Map<String, Any?> {
     val table = resolvedTable()
     table.load().getOrThrow()
-    val arcGISTable = table as? ArcGISFeatureTable
-      ?: throw IllegalStateException("getContingentValues requires an ArcGIS feature table (not a shapefile or WFS table)")
-    val feature = featureByObjectId(objectId) as? ArcGISFeature
-      ?: throw IllegalArgumentException("Feature not found for objectId $objectId")
-    val result = arcGISTable.getContingentValuesOrNull(feature, fieldName)
-      ?: return mapOf("fieldName" to fieldName, "contingentValues" to emptyList<Map<String, Any?>>())
-    val serialized = result.byFieldGroup.flatMap { (groupName, values) ->
-      values.map { cv -> serializeContingentValue(cv, groupName) }
-    }
+    val arcGISTable =
+            table as? ArcGISFeatureTable
+                    ?: throw IllegalStateException(
+                            "getContingentValues requires an ArcGIS feature table (not a shapefile or WFS table)"
+                    )
+    val feature =
+            featureByObjectId(objectId) as? ArcGISFeature
+                    ?: throw IllegalArgumentException("Feature not found for objectId $objectId")
+    val result =
+            arcGISTable.getContingentValuesOrNull(feature, fieldName)
+                    ?: return mapOf(
+                            "fieldName" to fieldName,
+                            "contingentValues" to emptyList<Map<String, Any?>>()
+                    )
+    val serialized =
+            result.byFieldGroup.flatMap { (groupName, values) ->
+              values.map { cv -> serializeContingentValue(cv, groupName) }
+            }
     return mapOf("fieldName" to fieldName, "contingentValues" to serialized)
   }
 
@@ -421,19 +491,26 @@ class FeatureLayerRef private constructor(
       else -> {
         // ContingentNullValue, ContingentAnyValue, or unknown future subtype
         val typeName = cv::class.simpleName ?: ""
-        dict["type"] = when {
-          typeName.contains("Null", ignoreCase = true) -> "null"
-          else -> "any"
-        }
+        dict["type"] =
+                when {
+                  typeName.contains("Null", ignoreCase = true) -> "null"
+                  else -> "any"
+                }
       }
     }
     return dict
   }
 
-  private suspend fun featureByObjectId(objectId: Long): Feature? {
+  private suspend fun featureByObjectId(objectId: Long): ArcGISFeature? {
     val table = resolvedTable()
+
     val params = QueryParameters().apply { objectIds.add(objectId) }
-    return table.queryFeatures(params).getOrThrow().firstOrNull()
+
+    val feature = table.queryFeatures(params).getOrThrow().firstOrNull() as? ArcGISFeature
+
+    feature?.load()?.getOrThrow()
+
+    return feature
   }
 
   /**
@@ -460,9 +537,9 @@ class FeatureLayerRef private constructor(
   }
 
   /**
-   * Builds a [PortalItem] from a `dictionaryRenderer` prop dict. Prefers `portalItemUrl`
-   * (item id extracted from the `id=` query parameter) over `styleName` (treated as an item id
-   * on ArcGIS Online). Returns `null` when neither key resolves to a usable item id.
+   * Builds a [PortalItem] from a `dictionaryRenderer` prop dict. Prefers `portalItemUrl` (item id
+   * extracted from the `id=` query parameter) over `styleName` (treated as an item id on ArcGIS
+   * Online). Returns `null` when neither key resolves to a usable item id.
    */
   private fun portalItemFromDictionaryRendererDict(dict: Map<*, *>): PortalItem? {
     // portalItemUrl takes precedence — extract item id from `id=` query parameter
@@ -487,8 +564,8 @@ class FeatureLayerRef private constructor(
   }
 
   /**
-   * Launches an async task that loads [DictionarySymbolStyle] from the provided prop dict and
-   * sets a [DictionaryRenderer] on the layer. If the load fails, the renderer is left unchanged.
+   * Launches an async task that loads [DictionarySymbolStyle] from the provided prop dict and sets
+   * a [DictionaryRenderer] on the layer. If the load fails, the renderer is left unchanged.
    */
   private fun applyDictionaryRenderer(dict: Map<*, *>) {
     val portalItem = portalItemFromDictionaryRendererDict(dict) ?: return
@@ -524,7 +601,8 @@ class FeatureLayerRef private constructor(
       }
     }
     if (changed.containsKey("featureReduction")) {
-      layer.featureReduction = (changed["featureReduction"] as? Map<*, *>)?.let { buildFeatureReduction(it) }
+      layer.featureReduction =
+              (changed["featureReduction"] as? Map<*, *>)?.let { buildFeatureReduction(it) }
     }
     if (changed.containsKey("displayFilter")) {
       val filterDict = changed["displayFilter"] as? Map<*, *>
@@ -540,13 +618,14 @@ class FeatureLayerRef private constructor(
     if (changed.containsKey("scaleDisplayFilter")) {
       val entries = changed["scaleDisplayFilter"] as? List<*>
       if (!entries.isNullOrEmpty()) {
-        val scaleFilters = entries.mapNotNull { entry ->
-          val dict = entry as? Map<*, *> ?: return@mapNotNull null
-          val whereClause = dict["whereClause"] as? String ?: return@mapNotNull null
-          val minScale = (dict["minScale"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
-          val maxScale = (dict["maxScale"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
-          ScaleRangeDisplayFilter("", whereClause, minScale, maxScale)
-        }
+        val scaleFilters =
+                entries.mapNotNull { entry ->
+                  val dict = entry as? Map<*, *> ?: return@mapNotNull null
+                  val whereClause = dict["whereClause"] as? String ?: return@mapNotNull null
+                  val minScale = (dict["minScale"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
+                  val maxScale = (dict["maxScale"] as? Number)?.toDouble()?.takeIf { it != 0.0 }
+                  ScaleRangeDisplayFilter("", whereClause, minScale, maxScale)
+                }
         layer.displayFilterDefinition = ScaleDisplayFilterDefinition(scaleFilters)
       } else {
         layer.displayFilterDefinition = null
@@ -571,8 +650,9 @@ private fun featureLayerParts(props: Map<String, Any?>): Pair<FeatureLayer, Feat
   val item = portalItemFromDict(props["portalItem"])
   if (item != null) {
     val layerId = (props["layerId"] as? Number)?.toLong()
-    val layer = if (layerId != null) FeatureLayer.createWithItemAndLayerId(item, layerId)
-    else FeatureLayer.createWithItem(item)
+    val layer =
+            if (layerId != null) FeatureLayer.createWithItemAndLayerId(item, layerId)
+            else FeatureLayer.createWithItem(item)
     return layer to null
   }
   val table = featureTable(props)
@@ -580,10 +660,10 @@ private fun featureLayerParts(props: Map<String, Any?>): Pair<FeatureLayer, Feat
 }
 
 /**
- * Applies a JS `sceneProperties` dict onto a layer's or overlay's [LayerSceneProperties].
- * Clearing the prop (`null`) restores the SDK defaults; otherwise only keys that are present and
- * understood are applied. An unrecognised `surfacePlacement` is left alone rather than coerced to
- * the default, so a typo can't quietly drape a layer that asked to sit at an absolute height.
+ * Applies a JS `sceneProperties` dict onto a layer's or overlay's [LayerSceneProperties]. Clearing
+ * the prop (`null`) restores the SDK defaults; otherwise only keys that are present and understood
+ * are applied. An unrecognised `surfacePlacement` is left alone rather than coerced to the default,
+ * so a typo can't quietly drape a layer that asked to sit at an absolute height.
  */
 internal fun applySceneProperties(target: LayerSceneProperties, dict: Map<*, *>?) {
   if (dict == null) {
@@ -595,21 +675,26 @@ internal fun applySceneProperties(target: LayerSceneProperties, dict: Map<*, *>?
   (dict["altitudeOffset"] as? Number)?.toDouble()?.let { target.altitudeOffset = it }
 }
 
-private fun surfacePlacement(value: String?): SurfacePlacement? = when (value) {
-  "draped-billboarded" -> SurfacePlacement.DrapedBillboarded
-  "draped-flat" -> SurfacePlacement.DrapedFlat
-  "absolute" -> SurfacePlacement.Absolute
-  "relative" -> SurfacePlacement.Relative
-  "relative-to-scene" -> SurfacePlacement.RelativeToScene
-  else -> null
-}
+private fun surfacePlacement(value: String?): SurfacePlacement? =
+        when (value) {
+          "draped-billboarded" -> SurfacePlacement.DrapedBillboarded
+          "draped-flat" -> SurfacePlacement.DrapedFlat
+          "absolute" -> SurfacePlacement.Absolute
+          "relative" -> SurfacePlacement.Relative
+          "relative-to-scene" -> SurfacePlacement.RelativeToScene
+          else -> null
+        }
 
-/** Builds a [FeatureTable] from a JS source: `{type:"shapefile",path}` or a service URL (or `url`). */
+/**
+ * Builds a [FeatureTable] from a JS source: `{type:"shapefile",path}` or a service URL (or `url`).
+ */
 private fun featureTable(props: Map<String, Any?>): FeatureTable {
   val source = props["source"] as? Map<*, *>
   if (source != null) {
     if (source["type"] == "shapefile") return ShapefileFeatureTable(source["path"] as? String ?: "")
-    (source["url"] as? String)?.let { return ServiceFeatureTable(it) }
+    (source["url"] as? String)?.let {
+      return ServiceFeatureTable(it)
+    }
   }
   return ServiceFeatureTable(props["url"] as? String ?: "")
 }
@@ -681,9 +766,9 @@ class PointCloudLayerRef(appContext: AppContext, url: String) : LayerRef(appCont
     layer.load().getOrThrow()
     return layer.attributes.map {
       mapOf(
-        "name" to it.name,
-        "valueType" to it.valueType.jsName(),
-        "valuesPerElement" to it.valuesPerElement.toInt(),
+              "name" to it.name,
+              "valueType" to it.valueType.jsName(),
+              "valuesPerElement" to it.valuesPerElement.toInt(),
       )
     }
   }
@@ -691,17 +776,17 @@ class PointCloudLayerRef(appContext: AppContext, url: String) : LayerRef(appCont
 
 /** Serialises [PointCloudAttributeValueType] to the lowercase names used by the JS types. */
 private fun PointCloudAttributeValueType.jsName(): String =
-  when (this) {
-    PointCloudAttributeValueType.Int8 -> "int8"
-    PointCloudAttributeValueType.Uint8 -> "uint8"
-    PointCloudAttributeValueType.Int16 -> "int16"
-    PointCloudAttributeValueType.Uint16 -> "uint16"
-    PointCloudAttributeValueType.Int32 -> "int32"
-    PointCloudAttributeValueType.Uint32 -> "uint32"
-    PointCloudAttributeValueType.Float32 -> "float32"
-    PointCloudAttributeValueType.Float64 -> "float64"
-    else -> "unknown"
-  }
+        when (this) {
+          PointCloudAttributeValueType.Int8 -> "int8"
+          PointCloudAttributeValueType.Uint8 -> "uint8"
+          PointCloudAttributeValueType.Int16 -> "int16"
+          PointCloudAttributeValueType.Uint16 -> "uint16"
+          PointCloudAttributeValueType.Int32 -> "int32"
+          PointCloudAttributeValueType.Uint32 -> "uint32"
+          PointCloudAttributeValueType.Float32 -> "float32"
+          PointCloudAttributeValueType.Float64 -> "float64"
+          else -> "unknown"
+        }
 
 /** Operational OGC 3D Tiles layer backed by a 3D Tiles service URL. */
 class Ogc3DTilesLayerRef(appContext: AppContext, url: String) : LayerRef(appContext) {
@@ -725,7 +810,8 @@ class OpenStreetMapLayerRef(appContext: AppContext) : LayerRef(appContext) {
 }
 
 /** Operational WMS layer (Web Map Service) backed by a service URL + visible layer names. */
-class WmsLayerRef(appContext: AppContext, url: String, layerNames: List<String>) : LayerRef(appContext) {
+class WmsLayerRef(appContext: AppContext, url: String, layerNames: List<String>) :
+        LayerRef(appContext) {
   override val layer: WmsLayer = WmsLayer(url, layerNames)
 
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
@@ -740,9 +826,9 @@ class WmtsLayerRef(appContext: AppContext, url: String, layerId: String) : Layer
 
 /** Operational raster layer from a remote image service or a local raster file. */
 class RasterLayerRef(
-  appContext: AppContext,
-  source: Map<String, Any?>,
-  rasterFunctionJson: String? = null,
+        appContext: AppContext,
+        source: Map<String, Any?>,
+        rasterFunctionJson: String? = null,
 ) : LayerRef(appContext) {
   override val layer: RasterLayer = RasterLayer(rasterFromSource(source, rasterFunctionJson))
 
@@ -756,12 +842,12 @@ class RasterLayerRef(
 
   /** The raster's pyramid overviews, or null when it has none (ArcGIS 300.1). */
   suspend fun getPyramidInfo(): Map<String, Any?>? =
-    pyramids()?.pyramidInfo?.let { serializePyramidInfo(it) }
+          pyramids()?.pyramidInfo?.let { serializePyramidInfo(it) }
 
   /** Builds sidecar `.ovr` overviews and resolves once they are written (ArcGIS 300.1). */
   suspend fun buildPyramids(parameters: Map<String, Any?>?): Map<String, Any?> {
-    val pyramids = pyramids()
-      ?: throw IllegalStateException("Layer has no raster to build pyramids for")
+    val pyramids =
+            pyramids() ?: throw IllegalStateException("Layer has no raster to build pyramids for")
     val operation = pyramids.buildPyramids(buildPyramidsParameters(parameters))
     return serializePyramidInfo(operation.result().getOrThrow())
   }
@@ -784,13 +870,13 @@ class RasterLayerRef(
  * Builds a [Raster] from a JS source dict: `{type:"imageService",url}` or `{type:"file",path}`.
  * When [rasterFunctionJson] is supplied, wraps the base raster in a [RasterFunction] pipeline:
  * `RasterFunction.fromJsonOrNull` → wire source raster as first raster argument →
- * `Raster.createWithRasterFunction`.  Falls back to the plain source raster if parsing fails
- * or no raster argument is found.
+ * `Raster.createWithRasterFunction`. Falls back to the plain source raster if parsing fails or no
+ * raster argument is found.
  */
 private fun rasterFromSource(s: Map<String, Any?>, rasterFunctionJson: String? = null): Raster {
   val base: Raster =
-    if (s["type"] == "file") Raster.createWithPath(s["path"] as? String ?: "")
-    else ImageServiceRaster(s["url"] as? String ?: "")
+          if (s["type"] == "file") Raster.createWithPath(s["path"] as? String ?: "")
+          else ImageServiceRaster(s["url"] as? String ?: "")
   if (rasterFunctionJson == null) return base
   val fn = RasterFunction.fromJsonOrNull(rasterFunctionJson) ?: return base
   val args = fn.arguments ?: return base
@@ -803,40 +889,59 @@ private fun rasterFromSource(s: Map<String, Any?>, rasterFunctionJson: String? =
 class KmlLayerRef(appContext: AppContext, url: String) : LayerRef(appContext) {
   private val dataset = KmlDataset(url)
   override val layer: KmlLayer = KmlLayer(dataset)
-  /** Lazily-created controller; held for the lifetime of the ref so play/pause/reset are idempotent. */
+  /**
+   * Lazily-created controller; held for the lifetime of the ref so play/pause/reset are idempotent.
+   */
   private var tourController: KmlTourController? = null
 
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
 
-  /** Loads the KML and returns its node tree (recursing into container nodes like documents / folders). */
+  /**
+   * Loads the KML and returns its node tree (recursing into container nodes like documents /
+   * folders).
+   */
   suspend fun getNodes(): List<Map<String, Any?>> {
     dataset.load().getOrThrow()
     return dataset.rootNodes.map { serializeKmlNode(it) }
   }
 
-  /** Returns the existing controller, or creates one attached to the first [KmlTour] in the node tree.
-   *  Returns `null` if the dataset has no tour. */
+  /**
+   * Returns the existing controller, or creates one attached to the first [KmlTour] in the node
+   * tree. Returns `null` if the dataset has no tour.
+   */
   private fun controller(): KmlTourController? {
-    tourController?.let { return it }
+    tourController?.let {
+      return it
+    }
     val tour = findFirstTour(dataset.rootNodes) ?: return null
-    return KmlTourController().also { it.tour = tour; tourController = it }
+    return KmlTourController().also {
+      it.tour = tour
+      tourController = it
+    }
   }
 
   /** Starts or resumes playback of the first KML tour. No-ops if no tour exists. */
-  fun playTour() { controller()?.play() }
+  fun playTour() {
+    controller()?.play()
+  }
   /** Pauses playback of the first KML tour. No-ops if no tour exists. */
-  fun pauseTour() { controller()?.pause() }
+  fun pauseTour() {
+    controller()?.pause()
+  }
   /** Resets playback of the first KML tour to the beginning. No-ops if no tour exists. */
-  fun resetTour() { controller()?.reset() }
+  fun resetTour() {
+    controller()?.reset()
+  }
 }
 
 /** Serializes a KML node, recursing into container nodes (documents / folders). */
 private fun serializeKmlNode(node: KmlNode): Map<String, Any?> {
-  val dict = mutableMapOf<String, Any?>(
-    "name" to node.name,
-    "visible" to node.isVisible,
-    "type" to (node::class.simpleName ?: "KmlNode"),
-  )
+  val dict =
+          mutableMapOf<String, Any?>(
+                  "name" to node.name,
+                  "visible" to node.isVisible,
+                  "type" to (node::class.simpleName ?: "KmlNode"),
+          )
   if (node is KmlContainer) {
     dict["children"] = node.childNodes.map { serializeKmlNode(it) }
   }
@@ -847,30 +952,42 @@ private fun serializeKmlNode(node: KmlNode): Map<String, Any?> {
 private fun findFirstTour(nodes: List<KmlNode>): KmlTour? {
   for (node in nodes) {
     if (node is KmlTour) return node
-    if (node is KmlContainer) findFirstTour(node.childNodes)?.let { return it }
+    if (node is KmlContainer)
+            findFirstTour(node.childNodes)?.let {
+              return it
+            }
   }
   return null
 }
 
 /** Operational WFS layer — a [FeatureLayer] over a [WfsFeatureTable] (Web Feature Service). */
 class WfsLayerRef(appContext: AppContext, url: String, tableName: String) : LayerRef(appContext) {
-  override val layer: FeatureLayer = FeatureLayer.createWithFeatureTable(
-    WfsFeatureTable(url, tableName).apply { featureRequestMode = FeatureRequestMode.OnInteractionCache }
-  )
+  override val layer: FeatureLayer =
+          FeatureLayer.createWithFeatureTable(
+                  WfsFeatureTable(url, tableName).apply {
+                    featureRequestMode = FeatureRequestMode.OnInteractionCache
+                  }
+          )
 
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
 }
 
 /** Operational OGC API - Features layer — a [FeatureLayer] over an [OgcFeatureCollectionTable]. */
-class OgcFeatureLayerRef(appContext: AppContext, url: String, collectionId: String) : LayerRef(appContext) {
-  override val layer: FeatureLayer = FeatureLayer.createWithFeatureTable(
-    OgcFeatureCollectionTable(url, collectionId).apply { featureRequestMode = FeatureRequestMode.OnInteractionCache }
-  )
+class OgcFeatureLayerRef(appContext: AppContext, url: String, collectionId: String) :
+        LayerRef(appContext) {
+  override val layer: FeatureLayer =
+          FeatureLayer.createWithFeatureTable(
+                  OgcFeatureCollectionTable(url, collectionId).apply {
+                    featureRequestMode = FeatureRequestMode.OnInteractionCache
+                  }
+          )
 
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
 }
 
-/** Operational annotation layer (map text stored as annotation features) from a feature service URL. */
+/**
+ * Operational annotation layer (map text stored as annotation features) from a feature service URL.
+ */
 class AnnotationLayerRef(appContext: AppContext, url: String) : LayerRef(appContext) {
   override val layer: Layer = AnnotationLayer(url)
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
@@ -888,7 +1005,9 @@ class BuildingSceneLayerRef(appContext: AppContext, url: String) : LayerRef(appC
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
 }
 
-/** Operational oriented imagery layer (photos with position/orientation) from a feature service URL. */
+/**
+ * Operational oriented imagery layer (photos with position/orientation) from a feature service URL.
+ */
 class OrientedImageryLayerRef(appContext: AppContext, url: String) : LayerRef(appContext) {
   override val layer: Layer = OrientedImageryLayer(url)
   override fun applyProps(changed: Map<String, Any?>) = applyCommonProps(changed)
@@ -923,22 +1042,27 @@ class GroupLayerRef(appContext: AppContext) : LayerRef(appContext) {
  * In-memory [FeatureCollectionLayer] — a layer built from a client-side schema (`fields`) and
  * `features` (no service). Features become graphics in a [FeatureCollectionTable].
  */
-class FeatureCollectionLayerRef(appContext: AppContext, props: Map<String, Any?>) : LayerRef(appContext) {
+class FeatureCollectionLayerRef(appContext: AppContext, props: Map<String, Any?>) :
+        LayerRef(appContext) {
   private val table: FeatureCollectionTable = run {
-    val fields = (props["fields"] as? List<*> ?: emptyList<Any?>())
-      .mapNotNull { (it as? Map<*, *>)?.let(::makeFeatureCollectionField) }
-    val graphics = (props["features"] as? List<*> ?: emptyList<Any?>()).mapNotNull { spec ->
-      val s = spec as? Map<*, *> ?: return@mapNotNull null
-      Graphic().apply {
-        geometry = (s["geometry"] as? Map<*, *>)?.let { geometryFromDict(it) }
-        (s["attributes"] as? Map<*, *>)?.forEach { (k, v) -> attributes[k.toString()] = v }
-      }
-    }
+    val fields =
+            (props["fields"] as? List<*> ?: emptyList<Any?>()).mapNotNull {
+              (it as? Map<*, *>)?.let(::makeFeatureCollectionField)
+            }
+    val graphics =
+            (props["features"] as? List<*> ?: emptyList<Any?>()).mapNotNull { spec ->
+              val s = spec as? Map<*, *> ?: return@mapNotNull null
+              Graphic().apply {
+                geometry = (s["geometry"] as? Map<*, *>)?.let { geometryFromDict(it) }
+                (s["attributes"] as? Map<*, *>)?.forEach { (k, v) -> attributes[k.toString()] = v }
+              }
+            }
     FeatureCollectionTable(graphics, fields).apply {
       renderer = (props["renderer"] as? Map<*, *>)?.let { buildRenderer(it) }
     }
   }
-  override val layer: Layer = FeatureCollectionLayer(FeatureCollection().apply { tables.add(table) })
+  override val layer: Layer =
+          FeatureCollectionLayer(FeatureCollection().apply { tables.add(table) })
 
   override fun applyProps(changed: Map<String, Any?>) {
     applyCommonProps(changed)
@@ -954,7 +1078,7 @@ class FeatureCollectionLayerRef(appContext: AppContext, props: Map<String, Any?>
  * [FeatureLayer], and attaches it to the placeholder [GroupLayer] once ready.
  */
 class GeoPackageLayerRef(appContext: AppContext, path: String, tableName: String?) :
-  LayerRef(appContext) {
+        LayerRef(appContext) {
 
   private val group = GroupLayer(emptyList())
   override val layer: Layer = group
@@ -963,14 +1087,17 @@ class GeoPackageLayerRef(appContext: AppContext, path: String, tableName: String
   init {
     scope.launch {
       val pkg = GeoPackage(path)
-      pkg.load().onFailure { return@launch }
+      pkg.load().onFailure {
+        return@launch
+      }
       val tables = pkg.geoPackageFeatureTables
       if (tables.isEmpty()) return@launch
-      val table = if (tableName != null) {
-        tables.firstOrNull { it.tableName == tableName } ?: return@launch
-      } else {
-        tables[0]
-      }
+      val table =
+              if (tableName != null) {
+                tables.firstOrNull { it.tableName == tableName } ?: return@launch
+              } else {
+                tables[0]
+              }
       val featureLayer = FeatureLayer.createWithFeatureTable(table)
       group.layers.add(featureLayer)
     }
@@ -982,21 +1109,22 @@ class GeoPackageLayerRef(appContext: AppContext, path: String, tableName: String
 private fun makeFeatureCollectionField(d: Map<*, *>): Field {
   val name = d["name"] as? String ?: ""
   return Field(
-    featureCollectionFieldType(d["type"] as? String),
-    name,
-    d["alias"] as? String ?: name,
-    (d["length"] as? Number)?.toInt() ?: 255,
-    null,
-    true,
-    true,
+          featureCollectionFieldType(d["type"] as? String),
+          name,
+          d["alias"] as? String ?: name,
+          (d["length"] as? Number)?.toInt() ?: 255,
+          null,
+          true,
+          true,
   )
 }
 
-private fun featureCollectionFieldType(value: String?): FieldType = when (value) {
-  "int16" -> FieldType.Int16
-  "integer" -> FieldType.Int32
-  "long" -> FieldType.Int64
-  "double" -> FieldType.Float64
-  "date" -> FieldType.Date
-  else -> FieldType.Text
-}
+private fun featureCollectionFieldType(value: String?): FieldType =
+        when (value) {
+          "int16" -> FieldType.Int16
+          "integer" -> FieldType.Int32
+          "long" -> FieldType.Int64
+          "double" -> FieldType.Float64
+          "date" -> FieldType.Date
+          else -> FieldType.Text
+        }
