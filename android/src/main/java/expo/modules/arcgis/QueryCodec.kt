@@ -134,18 +134,18 @@ internal fun serializeStatisticRecord(record: StatisticRecord): Map<String, Any?
 /** Applies JS attribute values onto a feature (used by add / update). */
 internal fun applyAttributes(feature: Feature, attributes: Map<*, *>) {
 
-  // Dump the schema for every field once
-  feature.featureTable.fields.forEach { field ->
-    println(
-      "Field: ${field.name}, Type: ${field.fieldType}, Value: ${feature.attributes[field.name]}"
-    )
-  }
+    val table = feature.featureTable
 
-  attributes.forEach { (key, value) ->
-    if (value != null) {
-      feature.attributes[key.toString()] = value
+    table?.fields?.forEach { field ->
+        println("FIELD ${field.name} -> ${field.fieldType}")
     }
-  }
+
+    attributes.forEach { (key, value) ->
+        println("SETTING $key = $value (${value?.javaClass?.name})")
+        if (value != null) {
+            feature.attributes[key.toString()] = value
+        }
+    }
 }
 // region Identify
 
