@@ -262,9 +262,6 @@ private constructor(
     (changes["geometry"] as? Map<*, *>)?.let {
       geometryFromDict(it)?.let { g -> feature.geometry = g }
     }
-    println("Before updateFeature:")
-    println("installation_date = ${feature.attributes["installation_date"]}")
-    println("class = ${feature.attributes["installation_date"]?.javaClass?.name}")
     table.updateFeature(feature).getOrThrow()
     if (apply != false) persistEdits()
   }
