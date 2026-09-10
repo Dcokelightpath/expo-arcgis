@@ -6,6 +6,7 @@ import com.arcgismaps.ArcGISEnvironment
 import com.arcgismaps.LicenseKey
 import com.arcgismaps.httpcore.authentication.OAuthApplicationCredential
 import com.arcgismaps.httpcore.authentication.OAuthUserCredential
+import com.arcgismaps.portal.Portal
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
@@ -87,6 +88,63 @@ class ExpoArcgisModule : Module() {
                               .getOrThrow()
               ArcGISEnvironment.authenticationManager.arcGISCredentialStore.add(credential)
             }
+
+    AsyncFunction("logPortalUser") Coroutine
+        { portalUrl: String ->
+          println("========== ARC GIS PORTAL USER ==========")
+
+          try {
+            val portal = Portal(
+                    portalUrl,
+                    Portal.Connection.Authenticated
+            )
+
+            portal.load().getOrElse { error ->
+              println("Failed to load portal")
+              println("Error: ${error.message}")
+              println("=========================================")
+              return@Coroutine
+            }
+
+            val portalInfo = portal.portalInfo
+
+            println("Portal URL: $portalUrl")
+            println("Portal Name: ${portalInfo.portalName}")
+            println("Organization Name: ${portalInfo.organizationName}")
+            println("Organization ID: ${portalInfo.organizationId}")
+            println("Portal Version: ${portalInfo.version}")
+
+            val user = portalInfo.user
+
+            if (user == null) {
+              println("No authenticated portal user found")
+              println("=========================================")
+              return@Coroutine
+            }
+
+            println("----- USER -----")
+            println("Username: ${user.username}")
+            println("User ID: ${user.userId}")
+            println("Full Name: ${user.fullName}")
+            println("First Name: ${user.firstName}")
+            println("Last Name: ${user.lastName}")
+            println("Email: ${user.email}")
+            println("Role: ${user.role}")
+            println("Role ID: ${user.roleId}")
+            println("Organization ID: ${user.orgId}")
+            println("Thumbnail URL: ${user.thumbnailUrl}")
+
+            println("----- USER JSON -----")
+            println(user.toJson())
+
+            println("=========================================")
+          } catch (error: Exception) {
+            println("logPortalUser failed")
+            println("Error: ${error.message}")
+            error.printStackTrace()
+            println("=========================================")
+          }
+        }
 
     // Declarative map model — a SharedObject the JS <Map> constructs and reconciles.
     Class(MapRef::class) {

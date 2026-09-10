@@ -148,3 +148,7 @@ export function setServiceCredential(
 ): Promise<void> {
   return ExtrasModule.setServiceCredential(serviceUrl, username, password, tokenExpirationMinutes ?? null);
 }
+
+export function logPortalUser(portalUrl: string): Promise<void> {
+  return Module.logPortalUser(portalUrl);
+}
