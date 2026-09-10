@@ -89,65 +89,59 @@ class ExpoArcgisModule : Module() {
               ArcGISEnvironment.authenticationManager.arcGISCredentialStore.add(credential)
             }
 
-AsyncFunction("logPortalUser") Coroutine
-        { portalUrl: String ->
-          println("========== ARC GIS PORTAL USER ==========")
+    AsyncFunction("getPortalUser") Coroutine
+            { portalUrl: String ->
+              try {
+                val portal = Portal(portalUrl, Portal.Connection.Authenticated)
 
-          try {
-            val portal = Portal(
-                    portalUrl,
-                    Portal.Connection.Authenticated
-            )
+                portal.load().getOrElse { error ->
+                  println("Failed to load portal")
+                  println("Error: ${error.message}")
+                  return@Coroutine null
+                }
 
-            portal.load().getOrElse { error ->
-              println("Failed to load portal")
-              println("Error: ${error.message}")
-              println("=========================================")
-              return@Coroutine
+                val portalInfo = portal.portalInfo
+
+                if (portalInfo == null) {
+                  println("Portal loaded but portalInfo is null")
+                  return@Coroutine null
+                }
+
+                val user = portalInfo.user
+
+                if (user == null) {
+                  println("No authenticated portal user found")
+                  return@Coroutine null
+                }
+
+                mapOf(
+                        "portal" to
+                                mapOf(
+                                        "url" to portalUrl,
+                                        "name" to portalInfo.portalName,
+                                        "organizationName" to portalInfo.organizationName,
+                                        "organizationId" to portalInfo.organizationId,
+                                        "version" to portalInfo.version,
+                                ),
+                        "user" to
+                                mapOf(
+                                        "username" to user.username,
+                                        "userId" to user.userId,
+                                        "fullName" to user.fullName,
+                                        "firstName" to user.firstName,
+                                        "lastName" to user.lastName,
+                                        "email" to user.email,
+                                        "role" to user.role.toString(),
+                                ),
+                )
+              } catch (error: Exception) {
+                println("getPortalUser failed")
+                println("Error: ${error.message}")
+                error.printStackTrace()
+
+                null
+              }
             }
-
-            val portalInfo = portal.portalInfo
-
-            if (portalInfo == null) {
-              println("Portal loaded but portalInfo is null")
-              println("=========================================")
-              return@Coroutine
-            }
-
-            println("Portal URL: $portalUrl")
-            println("Portal Name: ${portalInfo.portalName}")
-            println("Organization Name: ${portalInfo.organizationName}")
-            println("Organization ID: ${portalInfo.organizationId}")
-            println("Portal Version: ${portalInfo.version}")
-
-            val user = portalInfo.user
-
-            if (user == null) {
-              println("No authenticated portal user found")
-              println("=========================================")
-              return@Coroutine
-            }
-
-            println("----- USER -----")
-            println("Username: ${user.username}")
-            println("User ID: ${user.userId}")
-            println("Full Name: ${user.fullName}")
-            println("First Name: ${user.firstName}")
-            println("Last Name: ${user.lastName}")
-            println("Email: ${user.email}")
-            println("Role: ${user.role}")
-
-            println("User class: ${user::class.java.name}")
-            println("User object: $user")
-
-            println("=========================================")
-          } catch (error: Exception) {
-            println("logPortalUser failed")
-            println("Error: ${error.message}")
-            error.printStackTrace()
-            println("=========================================")
-          }
-        }
 
     // Declarative map model — a SharedObject the JS <Map> constructs and reconciles.
     Class(MapRef::class) {
