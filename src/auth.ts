@@ -150,5 +150,7 @@ export function setServiceCredential(
 }
 
 export function logPortalUser(portalUrl: string): Promise<void> {
+  console.log("logPortalUser JS function called");
+  console.log("Native logPortalUser:", Module.logPortalUser);
   return Module.logPortalUser(portalUrl);
 }
