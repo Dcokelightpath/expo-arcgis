@@ -89,7 +89,7 @@ class ExpoArcgisModule : Module() {
               ArcGISEnvironment.authenticationManager.arcGISCredentialStore.add(credential)
             }
 
-    AsyncFunction("logPortalUser") Coroutine
+AsyncFunction("logPortalUser") Coroutine
         { portalUrl: String ->
           println("========== ARC GIS PORTAL USER ==========")
 
@@ -107,6 +107,12 @@ class ExpoArcgisModule : Module() {
             }
 
             val portalInfo = portal.portalInfo
+
+            if (portalInfo == null) {
+              println("Portal loaded but portalInfo is null")
+              println("=========================================")
+              return@Coroutine
+            }
 
             println("Portal URL: $portalUrl")
             println("Portal Name: ${portalInfo.portalName}")
@@ -130,12 +136,9 @@ class ExpoArcgisModule : Module() {
             println("Last Name: ${user.lastName}")
             println("Email: ${user.email}")
             println("Role: ${user.role}")
-            println("Role ID: ${user.roleId}")
-            println("Organization ID: ${user.orgId}")
-            println("Thumbnail URL: ${user.thumbnailUrl}")
 
-            println("----- USER JSON -----")
-            println(user.toJson())
+            println("User class: ${user::class.java.name}")
+            println("User object: $user")
 
             println("=========================================")
           } catch (error: Exception) {
