@@ -17,7 +17,7 @@ export {
   setAllowUntrustedHosts,
   signOut,
   signInWithOAuth,
-  logPortalUser,
+  getPortalUser,
   setAppCredential,
   enablePersistentCredentialStore,
   clearCredentialStore,

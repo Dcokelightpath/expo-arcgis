@@ -149,8 +149,6 @@ export function setServiceCredential(
   return ExtrasModule.setServiceCredential(serviceUrl, username, password, tokenExpirationMinutes ?? null);
 }
 
-export function logPortalUser(portalUrl: string): Promise<void> {
-  console.log("logPortalUser JS function called");
-  console.log("Native logPortalUser:", Module.logPortalUser);
-  return Module.logPortalUser(portalUrl);
+export function getPortalUser(portalUrl: string): Promise<void> {
+  return Module.getPortalUser(portalUrl);
 }
