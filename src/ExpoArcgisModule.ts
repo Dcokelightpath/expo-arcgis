@@ -361,6 +361,24 @@ export declare class JobRef<R> extends SharedObject<JobEvents> {
 
 /** The geo model that operational layers attach to — a `<Map>` or a `<Scene>`. */
 export type GeoModelRef = MapRef | SceneRef;
+export type ArcGISPortalUser = {
+  portal: {
+    url: string;
+    name: string;
+    organizationName: string;
+    organizationId: string;
+    version: string;
+  };
+  user: {
+    username: string;
+    userId: string;
+    fullName: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  };
+};
 
 declare class ExpoArcgisModule extends NativeModule {
   /** Sets the ArcGIS API key (access token) used to authenticate with ArcGIS services. */
@@ -392,7 +410,7 @@ declare class ExpoArcgisModule extends NativeModule {
   oauthStart(portalUrl: string, clientId: string, redirectUrl: string): Promise<string>;
   /** Android OAuth step 2: completes the flow with the browser redirect URL. */
   oauthComplete(redirectUrl: string): Promise<void>;
-  getPortalUser(portalUrl: string): Promise<void>;
+getPortalUser(portalUrl: string): Promise<ArcGISPortalUser | null>;
   /** App authentication (client id + secret, no user login) — caches an app token credential. */
   setAppCredential(portalUrl: string, clientId: string, clientSecret: string): Promise<void>;
   // Constructable native handles (SharedObjects). JS names mirror the native classes.
