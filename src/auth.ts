@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import Module from './ExpoArcgisModule';
+import Module, { type ArcGISPortalUser } from './ExpoArcgisModule';
 import GeometryModule from './ExpoArcgisGeometryModule';
 import ExtrasModule from './ExpoArcgisExtrasModule';
 
@@ -149,6 +149,8 @@ export function setServiceCredential(
   return ExtrasModule.setServiceCredential(serviceUrl, username, password, tokenExpirationMinutes ?? null);
 }
 
-export function getPortalUser(portalUrl: string): Promise<void> {
+export function getPortalUser(
+  portalUrl: string,
+): Promise<ArcGISPortalUser | null> {
   return Module.getPortalUser(portalUrl);
 }
