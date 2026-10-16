@@ -131,10 +131,40 @@ internal fun serializeStatisticRecord(record: StatisticRecord): Map<String, Any?
 
 // region Editing
 
+
 /** Applies JS attribute values onto a feature (used by add / update). */
 internal fun applyAttributes(feature: Feature, attributes: Map<*, *>) {
-  attributes.forEach { (key, value) -> if (value != null) feature.attributes[key.toString()] = value }
+    attributes.forEach { (key, value) ->
+        if (key == null || value == null) return@forEach
+
+        val fieldName = key.toString()
+
+        val convertedValue = when {
+            fieldName == "in_seq" && value is Number ->
+                value.toInt()
+
+            fieldName == "out_seq" && value is Number ->
+                value.toInt()
+
+            fieldName == "in_slack" && value is Number ->
+                value.toInt()
+
+            fieldName == "out_slack" && value is Number ->
+                value.toInt()
+
+            fieldName == "in_" && value is Number ->
+                value.toInt()
+
+            fieldName == "out" && value is Number ->
+                value.toInt()
+
+            else -> value
+        }
+
+        feature.attributes[fieldName] = convertedValue
+    }
 }
+
 
 // region Identify
 
